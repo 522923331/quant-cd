@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="layout :: head"></head>
+<body>
+<div th:replace="layout :: nav"></div>
+<div th:replace="layout :: alerts"></div>
+<div th:replace="layout :: progress"></div>
+<div class="container">
+    <h1 class="h3">A股回测</h1>
+    <p th:text="${'佣金 ' + commission + '，卖出印花税 ' + stamp}"></p>
+    <form method="post" th:action="@{/ashare/backtest}" class="row g-2 mb-3">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" name="submitToken" th:value="${backtestToken}"/>
+        <div class="col-md-2"><input class="form-control" name="tsCode" placeholder="600519.SH" th:value="${backtest != null ? backtest.tsCode : ''}"/></div>
+        <div class="col-md-2"><input class="form-control" name="start" placeholder="20240101"/></div>
+        <div class="col-md-2"><input class="form-control" name="end" placeholder="20241231"/></div>
+        <div class="col-md-1"><input class="form-control" name="fast" value="5"/></div>
+        <div class="col-md-1"><input class="form-control" name="slow" value="20"/></div>
+        <div class="col-md-2"><input class="form-control" name="cash" value="100000"/></div>
+        <div class="col-md-2"><button class="btn btn-primary" type="submit">运行回测</button></div>
+    </form>
+    <form method="post" th:action="@{/ashare/sync/daily}" class="row g-2 mb-4">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" name="submitToken" th:value="${dailyToken}"/>
+        <input type="hidden" name="back" value="backtest"/>
+        <div class="col-md-3"><input class="form-control" name="tsCode" placeholder="缺少日线时同步"/></div>
+        <div class="col-md-3"><input class="form-control" name="start" placeholder="20240101"/></div>
+        <div class="col-md-3"><input class="form-control" name="end" placeholder="20241231"/></div>
+        <div class="col-md-3"><button class="btn btn-outline-primary" type="submit" th:disabled="${!tokenConfigured}">同步日线</button></div>
+    </form>
+    <div th:if="${backtest != null}">
+        <p th:text="${backtest.tsCode + ' 收益 ' + backtest.totalReturn + '，最大回撤 ' + backtest.maxDrawdown}"></p>
+        <canvas id="equity" th:attr="data-url=@{|/ashare/backtest/${backtest.id}/equity|}"></canvas>
+        <pre th:text="${backtest.tradesJson}"></pre>
+    </div>
+</div>
+<script th:src="@{/webjars/chartjs/3.9.1/dist/chart.min.js}"></script>
+<script>
+    var canvas = document.getElementById('equity');
+    if (canvas) {
+        fetch(canvas.getAttribute('data-url')).then(function (r) { return r.json(); }).then(function (points) {
+            var labels = points.map(function (p) { return p.date; });
+            var data = points.map(function (p) { return Number(p.equity); });
+            new Chart(canvas, { type: 'line', data: { labels: labels, datasets: [{ label: '净值', data: data }] } });
+        });
+    }
+</script>
+</body>
+</html>

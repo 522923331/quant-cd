@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>登录</title>
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.3/css/bootstrap.min.css}"/>
+</head>
+<body>
+<div class="container py-5" style="max-width: 420px;">
+    <h1 class="h3 mb-3">quant-cd</h1>
+    <div th:if="${param.error}" class="alert alert-danger">账号或密码不正确</div>
+    <form th:action="@{/login}" method="post">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <div class="mb-3">
+            <label class="form-label">账号</label>
+            <input class="form-control" name="username" required="required"/>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">密码</label>
+            <input class="form-control" type="password" name="password" required="required"/>
+        </div>
+        <button class="btn btn-primary" type="submit">登录</button>
+    </form>
+</div>
+</body>
+</html>

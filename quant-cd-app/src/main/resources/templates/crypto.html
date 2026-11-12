@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="layout :: head"></head>
+<body>
+<div th:replace="layout :: nav"></div>
+<div th:replace="layout :: alerts"></div>
+<div class="container">
+    <h1 class="h3">现货</h1>
+    <p th:if="${!configured}">未配置币安密钥</p>
+    <p th:if="${quoteError}" class="text-danger" th:text="${quoteError}"></p>
+    <p id="live-price" th:attr="data-symbol=${symbol}" th:text="${price != null ? symbol + ' 最新价 ' + price : ''}"></p>
+    <h2 class="h5">实时行情</h2>
+    <p class="text-muted">只订阅已添加的币种。币安一推送，这张表就更新。</p>
+    <p id="tick-empty" class="text-muted">还没有实时行情。添加币种后会自动订阅。</p>
+    <table class="table" id="tick-table" style="display:none">
+        <thead><tr><th>交易对</th><th>最新价</th><th>24h涨跌%</th><th>最高</th><th>最低</th><th>成交额</th></tr></thead>
+        <tbody id="tick-body"></tbody>
+    </table>
+    <script>
+        (function () {
+            var rows = {};
+            function text(value) {
+                if (value == null || value === '') return '-';
+                return String(value).replace(/[&<>]/g, function (ch) {
+                    return ch === '&' ? '&amp;' : (ch === '<' ? '&lt;' : '&gt;');
+                });
+            }
+            function render() {
+                var names = Object.keys(rows).sort();
+                var empty = document.getElementById('tick-empty');
+                var table = document.getElementById('tick-table');
+                var body = document.getElementById('tick-body');
+                if (names.length === 0) {
+                    if (empty) empty.style.display = '';
+                    if (table) table.style.display = 'none';
+                    if (body) body.innerHTML = '';
+                    return;
+                }
+                if (empty) empty.style.display = 'none';
+                if (table) table.style.display = '';
+                var html = '';
+                for (var i = 0; i < names.length; i++) {
+                    var row = rows[names[i]];
+                    html += '<tr><td>' + text(row.symbol) + '</td><td>' + text(row.price) + '</td><td>' + text(row.changePercent)
+                            + '</td><td>' + text(row.high) + '</td><td>' + text(row.low) + '</td><td>' + text(row.quoteVolume) + '</td></tr>';
+                }
+                body.innerHTML = html;
+                var price = document.getElementById('live-price');
+                if (price && rows[price.getAttribute('data-symbol')]) {
+                    var current = rows[price.getAttribute('data-symbol')];
+                    price.textContent = current.symbol + ' 最新价 ' + current.price;
+                }
+            }
+            var source = new EventSource('/crypto/ticks/stream');
+            source.addEventListener('tick', function (event) {
+                var row = JSON.parse(event.data);
+                rows[row.symbol] = row;
+                render();
+            });
+            source.addEventListener('gone', function (event) {
+                delete rows[event.data];
+                render();
+            });
+        })();
+    </script>
+    <div class="card border-primary mb-4">
+        <div class="card-header bg-primary text-white">币种余额</div>
+        <div class="card-body">
+            <div th:replace="crypto-assets :: panel('/crypto')">余额</div>
+        </div>
+    </div>
+    <div class="mb-3" th:with="latest=${snapshots != null and !snapshots.isEmpty() ? snapshots[0] : null}">
+        <h2 class="h5">最近行情</h2>
+        <p class="text-muted">图和列表都来自已保存的行情记录，打开页面不会再向币安拉 K 线。</p>
+        <p th:if="${latest == null}" class="text-muted">还没有记录。添加币种后每小时写入，也可以马上记录当前交易对。</p>
+        <p th:if="${latest != null}" th:text="${latest.trend + '，RSI ' + latest.rsi + '，SMA200 ' + latest.sma200 + '，建议 ' + latest.action + (latest.positionPercent == null or latest.positionPercent.isEmpty() ? '' : ' ' + latest.positionPercent + '%')}"></p>
+        <p th:if="${latest != null}" th:text="${'恐惧指数 ' + latest.fearGreed + ' ' + latest.fearLabel + '，账户多空比 ' + latest.accountLongShortRatio + '，大户多空比 ' + latest.topPositionRatio + '，资金费率 ' + latest.fundingAvg + '，持仓额(USDT) ' + latest.openInterestUsdt}"></p>
+        <p th:if="${latest != null and latest.emergency}" class="text-danger" th:text="${latest.emergencyText}"></p>
+        <p th:if="${latest != null}" th:text="${latest.reason}"></p>
+        <form method="post" th:action="@{/crypto/signal}" class="mt-2">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" name="symbol" th:value="${symbol}"/>
+            <button class="btn btn-outline-primary" type="submit">记录并发送 Lark 消息</button>
+        </form>
+        <p th:if="${!larkEnabled}" class="text-muted">Lark 未启用</p>
+        <p th:if="${larkEnabled and !larkConfigured}" class="text-muted">未配置 Lark Webhook</p>
+    </div>
+    <form method="get" th:action="@{/crypto}" class="row g-2 mb-3">
+        <div class="col-auto"><input class="form-control" name="symbol" th:value="${symbol}"/></div>
+        <div class="col-auto"><button class="btn btn-outline-primary" type="submit">查行情</button></div>
+    </form>
+    <form method="post" th:action="@{/crypto/orders}" class="row g-2 mb-4">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" name="submitToken" th:value="${submitToken}"/>
+        <div class="col-md-2"><input class="form-control" name="symbol" th:value="${symbol}"/></div>
+        <div class="col-md-2">
+            <select class="form-select" name="side"><option>BUY</option><option>SELL</option></select>
+        </div>
+        <div class="col-md-2">
+            <select class="form-select" name="type"><option>MARKET</option><option>LIMIT</option></select>
+        </div>
+        <div class="col-md-2"><input class="form-control" name="quantity" placeholder="数量"/></div>
+        <div class="col-md-2"><input class="form-control" name="price" placeholder="限价"/></div>
+        <div class="col-md-2"><button class="btn btn-primary" type="submit" th:disabled="${!tradingEnabled}">下单</button></div>
+    </form>
+    <table class="table">
+        <thead><tr><th>单号</th><th>交易对</th><th>方向</th><th>类型</th><th>价格</th><th>数量</th><th>状态</th><th></th></tr></thead>
+        <tbody>
+        <tr th:each="order : ${orders}">
+            <td th:text="${order.clientOrderId}"></td>
+            <td th:text="${order.symbol}"></td>
+            <td th:text="${order.side}"></td>
+            <td th:text="${order.type}"></td>
+            <td th:text="${order.price}"></td>
+            <td th:text="${order.quantity}"></td>
+            <td th:text="${order.status}"></td>
+            <td>
+                <form method="post" th:action="@{|/crypto/orders/${order.id}/cancel|}" class="d-inline">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <button class="btn btn-sm btn-outline-danger" type="submit" th:disabled="${!tradingEnabled}">撤单</button>
+                </form>
+                <form method="post" th:action="@{|/crypto/orders/${order.id}/refresh|}" class="d-inline">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <button class="btn btn-sm btn-outline-secondary" type="submit">向交易所刷新</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    <h2 class="h5">行情记录</h2>
+    <p th:if="${snapshots == null or snapshots.isEmpty()}" class="text-muted">还没有行情记录。添加币种后每小时写入，也可以点上面的按钮马上记录当前交易对。</p>
+    <div th:if="${snapshots != null and !snapshots.isEmpty()}">
+        <canvas id="snapshot-price" class="mb-3" th:attr="data-points=${chartJson}" style="max-height: 280px;"></canvas>
+        <canvas id="snapshot-rsi" class="mb-3" th:attr="data-points=${chartJson}" style="max-height: 220px;"></canvas>
+        <div class="table-responsive">
+            <table class="table table-sm text-nowrap">
+                <thead>
+                <tr>
+                    <th>时间</th><th>价格</th><th>24h%</th><th>高</th><th>低</th><th>买一</th><th>卖一</th>
+                    <th>SMA200</th><th>RSI</th><th>ATR</th><th>趋势</th><th>建议</th>
+                    <th>恐惧</th><th>账户多空</th><th>大户持仓</th><th>大户账户</th><th>主动买卖</th>
+                    <th>资金费率</th><th>费率均值</th><th>标记价</th><th>指数价</th><th>基差%</th>
+                    <th>持仓量</th><th>持仓额</th><th>做多</th><th>做空</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="row : ${snapshots}">
+                    <td th:text="${row.capturedAt}"></td>
+                    <td th:text="${row.price}"></td>
+                    <td th:text="${row.changePercent24h}"></td>
+                    <td th:text="${row.high24h}"></td>
+                    <td th:text="${row.low24h}"></td>
+                    <td th:text="${row.bid}"></td>
+                    <td th:text="${row.ask}"></td>
+                    <td th:text="${row.sma200}"></td>
+                    <td th:text="${row.rsi}"></td>
+                    <td th:text="${row.atr}"></td>
+                    <td th:text="${row.trend}"></td>
+                    <td th:text="${row.action + (row.positionPercent == null or row.positionPercent.isEmpty() ? '' : ' ' + row.positionPercent + '%')}"></td>
+                    <td th:text="${row.fearGreed + ' ' + row.fearLabel}"></td>
+                    <td th:text="${row.accountLongShortRatio}"></td>
+                    <td th:text="${row.topPositionRatio}"></td>
+                    <td th:text="${row.topAccountRatio}"></td>
+                    <td th:text="${row.takerBuySellRatio}"></td>
+                    <td th:text="${row.fundingRate}"></td>
+                    <td th:text="${row.fundingAvg}"></td>
+                    <td th:text="${row.markPrice}"></td>
+                    <td th:text="${row.indexPrice}"></td>
+                    <td th:text="${row.basisPercent}"></td>
+                    <td th:text="${row.openInterest}"></td>
+                    <td th:text="${row.openInterestUsdt}"></td>
+                    <td th:text="${row.bullScore}"></td>
+                    <td th:text="${row.bearScore}"></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <h2 class="h5">交易所挂单</h2>
+    <p th:if="${openError}" class="text-danger" th:text="${openError}"></p>
+    <table class="table">
+        <thead><tr><th>单号</th><th>方向</th><th>类型</th><th>价格</th><th>数量</th><th>状态</th><th></th></tr></thead>
+        <tbody>
+        <tr th:each="open : ${openOrders}">
+            <td th:text="${open.clientOrderId}"></td>
+            <td th:text="${open.side}"></td>
+            <td th:text="${open.type}"></td>
+            <td th:text="${open.price}"></td>
+            <td th:text="${open.quantity}"></td>
+            <td th:text="${open.status}"></td>
+            <td>
+                <form method="post" th:action="@{/crypto/open-orders/cancel}" class="d-inline">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <input type="hidden" name="symbol" th:value="${symbol}"/>
+                    <input type="hidden" name="clientOrderId" th:value="${open.clientOrderId}"/>
+                    <button class="btn btn-sm btn-outline-danger" type="submit" th:disabled="${!tradingEnabled}">撤单</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+<script th:src="@{/webjars/chartjs/3.9.1/dist/chart.min.js}"></script>
+<script>
+    var priceCanvas = document.getElementById('snapshot-price');
+    if (priceCanvas && priceCanvas.getAttribute('data-points')) {
+        var points = JSON.parse(priceCanvas.getAttribute('data-points'));
+        var labels = points.map(function (p) { return (p.time || '').replace('T', ' ').substring(5, 16); });
+        new Chart(priceCanvas, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: '价格', data: points.map(function (p) { return p.price; }), borderColor: '#0d6efd', tension: 0.1 },
+                    { label: 'SMA200', data: points.map(function (p) { return p.sma; }), borderColor: '#6c757d', tension: 0.1 }
+                ]
+            },
+            options: { plugins: { title: { display: true, text: '已记录价格' } } }
+        });
+        var rsiCanvas = document.getElementById('snapshot-rsi');
+        new Chart(rsiCanvas, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'RSI', data: points.map(function (p) { return p.rsi; }), borderColor: '#198754', tension: 0.1 },
+                    { label: '恐惧指数', data: points.map(function (p) { return p.fear; }), borderColor: '#fd7e14', tension: 0.1 }
+                ]
+            },
+            options: { plugins: { title: { display: true, text: 'RSI 与恐惧指数' } }, scales: { y: { min: 0, max: 100 } } }
+        });
+    }
+</script>
+</body>
+</html>

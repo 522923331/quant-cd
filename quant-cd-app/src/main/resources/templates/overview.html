@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="layout :: head"></head>
+<body>
+<div th:replace="layout :: nav"></div>
+<div th:replace="layout :: alerts"></div>
+<div class="container pb-5">
+    <h1 class="h3 mb-1">总览</h1>
+    <p class="text-muted">数币和 A 股分开看。这里只读，不下单。</p>
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card h-100 border-primary">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <span>数币</span>
+                    <span class="badge text-bg-light">现货</span>
+                </div>
+                <div class="card-body">
+                    <h2 class="h6">币种余额</h2>
+                    <div th:replace="crypto-assets :: panel('/')">余额</div>
+                    <h2 class="h6 mt-4">最近订单</h2>
+                    <p th:if="${orders.isEmpty()}" class="text-muted">还没有本地订单。</p>
+                    <table class="table table-sm" th:if="${!orders.isEmpty()}">
+                        <thead><tr><th>交易对</th><th>方向</th><th>状态</th><th>数量</th></tr></thead>
+                        <tbody>
+                        <tr th:each="order : ${orders}">
+                            <td th:text="${order.symbol}"></td>
+                            <td th:text="${order.side}"></td>
+                            <td th:text="${order.status}"></td>
+                            <td th:text="${order.quantity}"></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    <a class="btn btn-sm btn-outline-primary" th:href="@{/crypto}">打开现货</a>
+                    <a class="btn btn-sm btn-outline-primary" th:href="@{/risk}">风控</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100 border-success">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <span>A股</span>
+                    <span class="badge text-bg-light">数据 · 筛选 · 回测</span>
+                </div>
+                <div class="card-body">
+                    <h2 class="h6">最近筛选</h2>
+                    <p th:if="${screen == null}" class="text-muted">还没有筛选。</p>
+                    <p th:if="${screen != null}" th:text="${screen.yearCount + ' 年，' + screen.conditions + '，通过 ' + screen.passCount + ' 只，未参与 ' + screen.skippedCount + ' 只'}"></p>
+                    <h2 class="h6 mt-4">最近回测</h2>
+                    <p th:if="${backtest == null}" class="text-muted">还没有回测。</p>
+                    <p th:if="${backtest != null}" th:text="${backtest.tsCode + ' ' + backtest.startDate + ' 至 ' + backtest.endDate + '，收益 ' + backtest.totalReturn + '，回撤 ' + backtest.maxDrawdown}"></p>
+                    <div class="mt-3">
+                        <a class="btn btn-sm btn-outline-success" th:href="@{/ashare/data}">数据</a>
+                        <a class="btn btn-sm btn-outline-success" th:href="@{/ashare/screen}">筛选</a>
+                        <a class="btn btn-sm btn-outline-success" th:href="@{/ashare/backtest}">回测</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

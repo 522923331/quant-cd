@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="layout :: head"></head>
+<body>
+<div th:replace="layout :: nav"></div>
+<div th:replace="layout :: alerts"></div>
+<div th:replace="layout :: progress"></div>
+<div class="container">
+    <h1 class="h3">A股筛选</h1>
+    <form method="post" th:action="@{/ashare/screen}" class="row g-3 mb-4">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" name="submitToken" th:value="${screenSubmitToken}"/>
+        <div class="col-md-2"><input class="form-control" name="years" value="5"/></div>
+        <div class="col-md-3 form-check"><input class="form-check-input" type="checkbox" name="wantReturn" value="true" id="ret"/><label class="form-check-label" for="ret">连续年份股价收益为正</label></div>
+        <div class="col-md-3 form-check"><input class="form-check-input" type="checkbox" name="wantDividend" value="true" id="div"/><label class="form-check-label" for="div">连续年份有现金分红</label></div>
+        <div class="col-md-3 form-check"><input class="form-check-input" type="checkbox" name="wantProfit" value="true" id="profit"/><label class="form-check-label" for="profit">连续年份净利润为正</label></div>
+        <div class="col-md-3"><label class="form-label" for="minNet">净利率下限 %</label><input class="form-control" id="minNet" name="minNetMargin" placeholder="选填，如 10"/></div>
+        <div class="col-md-3"><label class="form-label" for="minGross">毛利率下限 %</label><input class="form-control" id="minGross" name="minGrossMargin" placeholder="选填，如 30"/></div>
+        <div class="col-md-3"><label class="form-label" for="minRoe">ROE 下限 %</label><input class="form-control" id="minRoe" name="minRoe" placeholder="选填，如 15"/></div>
+        <div class="col-md-3"><label class="form-label" for="minOcf">净现比下限</label><input class="form-control" id="minOcf" name="minOcfToProfit" placeholder="选填，如 1"/></div>
+        <div class="col-12 text-muted">留空不作为条件。填写后，上面的连续年份里每一年都要达到。净现比是经营现金流除以净利润，填 1 表示现金流至少覆盖净利润。</div>
+        <div class="col-12"><button class="btn btn-primary" type="submit">筛选</button></div>
+    </form>
+    <div th:if="${screenRun != null}">
+        <p th:text="${'通过 ' + passCount + '，不通过 ' + failCount + '，未参与 ' + skipCount}"></p>
+        <form method="get" th:action="@{/ashare/screen}" class="row g-2 mb-3">
+            <input type="hidden" name="run" th:value="${screenRun.id}"/>
+            <div class="col-md-4"><input class="form-control" name="code" th:value="${lookup}" placeholder="查看一只股票"/></div>
+            <div class="col-md-2"><button class="btn btn-outline-secondary" type="submit">查看</button></div>
+        </form>
+        <form method="post" th:action="@{/ashare/sync/screen}" class="mb-3" th:if="${skipCount != null and skipCount > 0}">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" name="submitToken" th:value="${screenToken}"/>
+            <input type="hidden" name="back" value="screen"/>
+            <input type="hidden" name="codes" th:value="${lookup}"/>
+            <button class="btn btn-outline-primary" type="submit" th:disabled="${!tokenConfigured}">补同步筛选数据</button>
+        </form>
+        <table class="table">
+            <thead><tr><th>代码</th><th>名称</th><th>结果</th><th>明细</th></tr></thead>
+            <tbody>
+            <tr th:each="hit : ${hits}">
+                <td th:text="${hit.tsCode}"></td>
+                <td th:text="${hit.name}"></td>
+                <td th:text="${hit.outcome}"></td>
+                <td th:text="${hit.detail}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>
