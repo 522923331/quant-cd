@@ -1,0 +1,37 @@
+server:
+  address: 127.0.0.1
+  port: 8080
+
+spring:
+  datasource:
+    driver-class-name: org.sqlite.JDBC
+    url: jdbc:sqlite:./data/quant-cd.db?journal_mode=WAL&busy_timeout=5000
+    hikari:
+      maximum-pool-size: 1
+  sql:
+    init:
+      mode: always
+  thymeleaf:
+    cache: false
+
+quantcd:
+  auth:
+    username: admin
+    password: "{noop}admin"
+  crypto:
+    base-url: https://api.binance.com
+    futures-base-url: https://fapi.binance.com
+    api-key: ${BINANCE_API_KEY:}
+    api-secret: ${BINANCE_API_SECRET:}
+    allow-mainnet: false
+    trading-enabled: false
+    symbols: BTCUSDT
+  lark:
+    enabled: true              # 是否启用Lark飞书通知
+    webhook-url: ${CUANT_LARK_WEBHOOK:}   # Lark机器人Webhook地址，建议通过环境变量设置
+    secret: ${CUANT_LARK_SECRET:}
+  ashare:
+    token: ${TUSHARE_TOKEN:}
+    permits-per-minute: 180
+    commission-rate: "0.00025"
+    stamp-tax-rate: "0.0005"

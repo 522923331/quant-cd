@@ -1,0 +1,31 @@
+server:
+  address: 127.0.0.1
+
+spring:
+  datasource:
+    driver-class-name: org.sqlite.JDBC
+    url: jdbc:sqlite:./target/quant-cd-test.db?journal_mode=WAL&busy_timeout=5000
+    hikari:
+      maximum-pool-size: 1
+  sql:
+    init:
+      mode: always
+
+quantcd:
+  auth:
+    username: admin
+    password: "{noop}admin"
+  crypto:
+    base-url: https://testnet.binance.vision
+    api-key: ""
+    api-secret: ""
+    allow-mainnet: false
+  lark:
+    enabled: false
+    webhook-url: ""
+    secret: ""
+  ashare:
+    token: ""
+    permits-per-minute: 180
+    commission-rate: "0.00025"
+    stamp-tax-rate: "0.0005"
